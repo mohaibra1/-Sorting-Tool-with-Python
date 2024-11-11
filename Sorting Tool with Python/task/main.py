@@ -1,62 +1,68 @@
 import sys
+from collections import Counter
 
-numbers = [] # List to store the numbers
-lines = [] # List to store the lines
-words = [] # List to store the words
 
-if len(sys.argv) < 3:
-    print('Usage: python script.py <data_type> <long|line|word>')
-    sys.exit(1)
-
-data_type = sys.argv[2] # Get the data type from the command line argument
-
-def check_data_type():
+def check_data_type(data_type):
+    data = []
     while True:
-        temp = [] # Temporary list to store the numbers before checking the data type
         try:
-            data = input() # Get user input
-            if data_type == 'long':
-                data = data.split() # Split the input into words
-                temp = [int(x) for x in data] # Convert strings to integers and create a list
-                numbers.extend(temp) # Add the numbers to the list
+            line = input()
+            if data_type == 'long' or data_type == '-sortIntegers':
+                data.extend(map(int, line.split()))
             elif data_type == 'line':
-                lines.append(data) # Add the line to the list
+                data.append(line)
             elif data_type == 'word':
-                data = data.split() # Split the input into words
-                temp = [x for x in data] # Create a list of words
-                words.extend(temp) # Add the words to the list
+                data.extend(line.split())
         except EOFError:
             break
+    return data
+
+
+def process_data(data, data_type):
+    count = len(data)
+    if data_type == 'long' or data_type == '-sortIntegers':
+        max_item = max(data)
+    else:
+        max_item = max(data, key=len)
+
+    item_counts = Counter(data)
+    max_count = item_counts[max_item]
+    percentage = (max_count / count) * 100
+
+    print(f"Total numbers: {count}.")
     if data_type == 'long':
-        for_long()
+        print(f"The greatest number: {max_item} ({max_count} time(s), {int(percentage)}%).")
     elif data_type == 'line':
-        for_line()
+        print("The longest line:")
+        print(max_item)
+        print(f"({max_count} time(s), {int(percentage)}%).")
     elif data_type == 'word':
-        for_word()
+        print(f"The longest word: {max_item} ({max_count} time(s), {int(percentage)}%).")
+    elif data_type == '-sortIntegers':
+        data.sort()
+        print("Sorted words: ", end='')
+        for word in data:
+            print(word, end=' ')
 
-def for_long():
-    length = len(numbers) # Calculate the total number of numbers
-    print(f'Total numbers: {len(numbers)}.')
-    times = numbers.count(max(numbers)) # Count the number of occurrences of the maximum number
-    percentage = (times / length) * 100 # Calculate the percentage of numbers with the maximum value
-    print(f"The greatest number: {max(numbers)} ({times} time(s), {int(percentage)}%).")
 
-def for_line():
-    length = len(lines) # Calculate the total length of all lines
-    print(f'Total lines: {length}')
-    times = max(lines, key=len) # Find the line with the maximum length
-    times = lines.count(times) # Count the number of occurrences of the longest line
-    percentage = (times / length) * 100 # Calculate the percentage of lines with the maximum length
-    print("The longest line: ")
-    print(f"{max(lines, key=len)}")
-    print(f"({times} time(s), {int(percentage)}%).")
+def main():
+    if len(sys.argv) < 2:
+        print('Usage: python script.py -dataType <long|line|word>')
+        sys.exit(1)
 
-def for_word():
-    length = len(words) # Calculate the total number of words
-    print(f'Total words: {len(words)}.')
-    times = max(words, key=len) # Find the word with the maximum length
-    times = words.count(times)
-    percentage = (times / length) * 100 # Calculate the percentage of words with the maximum length
-    print(f"The longest word: {max(words, key=len)} ({times} time(s), {int(percentage)}%).")
+    # data_type = sys.argv[1]
+    #
+    # if data_type not in ['long', 'line', 'word']:
+    #     print('Invalid data type. Use long, line, or word.')
+    #     print(sys.argv[1], '-dataType', '<long|line|word>'  )
+    #     sys.exit(1)
+    if '-sortIntegers' in sys.argv:
+        data = check_data_type('-sortIntegers')
+        process_data(data, '-sortIntegers')
+    else:
+        data_type = sys.argv[2]
+        data = check_data_type(data_type)
+        process_data(data, data_type)
 
-check_data_type()
+if __name__ == "__main__":
+    main()

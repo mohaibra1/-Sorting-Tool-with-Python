@@ -5,14 +5,16 @@ from hstest.testing.settings import Settings
 from hstest import *
 
 
-class SortingToolStage2Test(StageTest):
+class SortingToolStage3Test(StageTest):
 
     def generate(self) -> List[TestCase]:
         Settings.allow_out_of_input = True
-        return stage1_tests() + stage2_tests()
+        return stage1_tests() + stage2_tests() + stage3_tests()
 
     def check(self, reply: str, clue: Any) -> CheckResult:
-        if 'long' in clue.args:
+        if '-sortIntegers' in clue.args:
+            return check_natural(parse_long_tokens(clue.console_input), clue, reply)
+        elif 'long' in clue.args:
             return check_for_long(clue, reply)
         elif 'word' in clue.args:
             return check_for_word(clue, reply)
@@ -48,6 +50,12 @@ def stage2_tests() -> List[TestCase]:
             create_test("abcc de a".strip(), False, ['-dataType', 'word']),
             create_test("1 -2   333 4\n42\n1                 1".strip(), True, ['-dataType', 'line']),
             create_test("1111\n22222\n3\n44".strip(), False, ['-dataType', 'line'])]
+
+
+def stage3_tests() -> List[TestCase]:
+    return [create_test('1 -2   333 4\n42\n1                 1'.strip(), True, ['-dataType', 'word', '-sortIntegers']),
+            create_test("1 -2   333 4\n42\n1                 1".strip(), True, ['-sortIntegers']),
+            create_test("1111\n22222\n3\n44".strip(), False, ['-sortIntegers', '-dataType', 'line'])]
 
 
 def check_for_long(clue, reply):
@@ -180,7 +188,8 @@ def check_for_line(clue, reply):
                 f"Can't parse your output for 'line' data type: expected 4 lines. Check the example\n"
                 + reveal_raw_test(clue, reply))
         else:
-            return CheckResult.wrong("Can't parse your output for 'line' data type: expected 4 lines. Check the example")
+            return CheckResult.wrong(
+                "Can't parse your output for 'line' data type: expected 4 lines. Check the example")
 
     total_match = re.search(r'(?P<total>\d+)', lines[0])
     if total_match is None:
@@ -246,5 +255,78 @@ def check_for_line(clue, reply):
     return CheckResult.correct()
 
 
+def parse_long_tokens(inp):
+    array = []
+    for i in inp.split():
+        array.append(int(i))
+    return array
+
+
+def check_natural(actual_tokens, clue, reply):
+    reply = reply.strip()
+    lines = reply.splitlines()
+
+    if len(lines) != 2:
+        if clue.reveal_test:
+            return CheckResult.wrong(
+                f"Can't parse your output after sorting: expected 2 lines.\n"
+                + reveal_raw_test(clue, reply))
+        else:
+            return CheckResult.wrong("Can't parse your output after sorting: expected 2 lines.")
+
+    total_match = re.search(r'(?P<total>\d+)', lines[0])
+    if total_match is None:
+        if clue.reveal_test:
+            return CheckResult.wrong("The first line of your output after sorting should contain a number.\n"
+                                     + reveal_raw_test(clue, reply))
+        else:
+            return CheckResult.wrong("The first line of your output after sorting should contain a number")
+
+    total = int(total_match.group('total'))
+    actual_total = len(actual_tokens)
+
+    if actual_total != total:
+        if clue.reveal_test:
+            return CheckResult.wrong(f"Total amount of tokens ({total}) is incorrect. Expected: {actual_total}.\n"
+                                     + reveal_raw_test(clue, reply))
+        else:
+            return CheckResult.wrong("Printed total amount of tokens after sorting is incorrect")
+
+    actual_tokens.sort()
+    if ':' not in lines[1]:
+        return CheckResult.wrong(
+            "There should be one ':' symbol in last line of a sorting output, "
+            "that separates \'Sorted data:\' string from actual tokens")
+    sort_line = lines[1].split(':')[1].strip()
+
+    def check_int(s):
+        if s and s[0] in ('-', '+'):
+            return s[1:].isdigit()
+        return s.isdigit()
+
+    for token in sort_line.split(' '):
+        if not check_int(token):
+            return CheckResult.wrong(
+                "After ':' symbol in last line of a sorting output there should be printed all the tokens,"
+                " divided by space character")
+    sorted_tokens = parse_long_tokens(sort_line)
+
+    if actual_total != len(sorted_tokens):
+        if clue.reveal_test:
+            return CheckResult.wrong(
+                f"Total amount of sorted tokens ({len(sorted_tokens)}) is incorrect. Expected: {actual_total}.\n"
+                + reveal_raw_test(clue, reply))
+        else:
+            return CheckResult.wrong("Total amount of sorted tokens is incorrect.")
+    if sorted_tokens != actual_tokens:
+        if clue.reveal_test:
+            return CheckResult.wrong(f"Some tokens were sorted incorrectly.\n"
+                                     + reveal_raw_test(clue, reply))
+        else:
+            return CheckResult.wrong("Some tokens were sorted incorrectly.")
+
+    return CheckResult.correct()
+
+
 if __name__ == '__main__':
-    SortingToolStage2Test().run_tests()
+    SortingToolStage3Test().run_tests()
