@@ -5,11 +5,11 @@ from hstest.testing.settings import Settings
 from hstest import *
 
 
-class SortingToolStage4Test(StageTest):
+class SortingToolStage5Test(StageTest):
 
     def generate(self) -> List[TestCase]:
         Settings.allow_out_of_input = True
-        return stage4_tests()
+        return stage4_tests() + stage5_tests()
 
     def check(self, reply: str, clue: Any) -> CheckResult:
         if 'byCount' in clue.args:
@@ -24,6 +24,8 @@ class SortingToolStage4Test(StageTest):
             return check_by_count(parse_word_tokens(clue.console_input), clue, reply)
         elif 'line' in clue.args:
             return check_by_count(parse_line_tokens(clue.console_input), clue, reply)
+        else:
+            return check_natural([''], clue, reply)
 
     def natural(self, reply: str, clue: Any):
         if 'long' in clue.args:
@@ -32,6 +34,8 @@ class SortingToolStage4Test(StageTest):
             return check_natural(parse_word_tokens(clue.console_input), clue, reply)
         elif 'line' in clue.args:
             return check_natural(parse_line_tokens(clue.console_input), clue, reply)
+        else:
+            return check_natural([''], clue, reply)
 
 
 class SortingToolClue:
@@ -48,6 +52,8 @@ def reveal_raw_test(clue, reply):
 def create_test(console_input, reveal_test, args=None):
     if args is None:
         args = ['-dataType', 'long']
+    if console_input == '':
+        return TestCase(args=args, attach=SortingToolClue(console_input, reveal_test, args))
     return TestCase(args=args, stdin=console_input, attach=SortingToolClue(console_input, reveal_test, args))
 
 
@@ -61,18 +67,52 @@ def stage4_tests() -> List[TestCase]:
                         ['-sortingType', 'byCount', '-dataType', 'word']),
             create_test('1 -2   333 4\n42\n42\n1                 1'.strip(), True,
                         ['-sortingType', 'byCount', '-dataType', 'line']),
-            create_test('1 -2   333 4\n42\n42\n1                 1'.strip(), True,
-                        ['-sortingType', 'natural', '-dataType', 'line']),
-            create_test('22222\n1111 1111\n3\n44'.strip(), False, ['-sortingType', 'byCount', '-dataType', 'line']),
-            create_test('22222\n1111 1111\n3\n44'.strip(), False, ['-sortingType', 'natural', '-dataType', 'line']),
-            create_test('22222\n1111 1111\n3\n44'.strip(), False, ['-sortingType', 'byCount', '-dataType', 'word']),
-            create_test('22222\n1111 1111\n3\n44'.strip(), False, ['-sortingType', 'byCount', '-dataType', 'long'])]
+            create_test('1111 1111\n22222\n3\n44'.strip(), False, ['-sortingType', 'byCount', '-dataType', 'line']),
+            create_test('1111 1111\n22222\n3\n44'.strip(), False, ['-sortingType', 'byCount', '-dataType', 'word']),
+            create_test('1111 1111\n22222\n3\n44'.strip(), False, ['-sortingType', 'byCount', '-dataType', 'long'])]
+
+
+def stage5_tests() -> List[TestCase]:
+    return [create_test('', True, ['-sortingType']),
+            create_test(''.strip(), True, ['-dataType']),
+            create_test('1 -2   333 4\n42\n1                 1'.strip(), True,
+                        ['-dataType', 'long', '-sortingType', 'byCount', '-abc']),
+            create_test('1 -2   abc 4\nbcd\n1                 1'.strip(), True,
+                        ['-dataType', 'long', '-sortingType', 'byCount']),
+            create_test('1 -2   abc 4\nbcd\n1                 1'.strip(), True,
+                        ['-dataType', 'line', '-sortingType', 'byCount']),
+            create_test(''.strip(), False,
+                        ['-sortingType', 'byCount', '-dataType']),
+            create_test(''.strip(), False,
+                        ['-dataType', 'line', '-sortingType']),
+            create_test('1111 1111\n22222\n3\n44'.strip(), False,
+                        ['-sortingType', 'byCount', '-dataType', 'line', '-bcd', '-cde']),
+            create_test('1111 abc\nbcd\ncde\n44'.strip(), False,
+                        ['-sortingType', 'byCount', '-dataType', 'long']),
+            create_test('1111 abc\nbcd\ncde\n44'.strip(), False,
+                        ['-sortingType', 'byCount', '-dataType', 'word']),
+            ]
+
+
+def bad_args(args: List):
+    if '-sortingType' in args and 'byCount' not in args and 'natural' not in args:
+        return 'No sorting type defined!'
+    if '-dataType' in args and 'long' not in args and 'word' not in args and 'line' not in args:
+        return 'No data type defined!'
+    ex = list(filter(lambda a: a not in ['-sortingType', 'byCount', 'natural', '-dataType', 'line', 'long', 'word'],
+                     args))
+    if len(ex) != 0:
+        return ' '.join(ex)
+    return ''
 
 
 def parse_long_tokens(inp):
     array = []
     for i in inp.split():
-        array.append(int(i))
+        try:
+            array.append(int(i))
+        except ValueError:
+            array.append(i)
     return array
 
 
@@ -84,27 +124,75 @@ def parse_line_tokens(inp):
     return inp.splitlines()
 
 
+def check_error_output(reason, reply):
+    if reason == 'No sorting type defined!':
+        if len(reply.splitlines()) == 1 and 'No sorting type defined!' in reply:
+            raise TestPassed()
+        else:
+            raise WrongAnswer('If there is no sorting type defined in args, your program should output only one'
+                              ' "No sorting type defined!" string and finish')
+
+    if reason == 'No data type defined!':
+        if len(reply.splitlines()) == 1 and 'No data type defined!' in reply:
+            raise TestPassed()
+        else:
+            raise WrongAnswer('If there is no data type defined in args, your program should output only one'
+                              ' "No data type defined!" string and finish')
+    wrong_args = reason.split(' ')
+    lines = reply.splitlines()
+    if len(lines) < len(wrong_args):
+        raise WrongAnswer('If there are wrong arguments provided, your program should output ""argument" is not'
+                          ' a valid parameter. It will be skipped." string for each one')
+    for i in range(0, len(wrong_args)):
+        if wrong_args[i] not in lines[i]:
+            raise WrongAnswer('If there are wrong arguments provided, your program should output ""argument" is not'
+                              ' a valid parameter. It will be skipped." string for each one')
+    return len(wrong_args)
+
+
+def check_int(s):
+    if s and s[0] in ('-', '+'):
+        return s[1:].isdigit()
+    return s.isdigit()
+
+
 def check_natural(actual_tokens, clue, reply):
+    amount_to_slice = 0
+    if bad_args(clue.args) != '':
+        amount_to_slice = check_error_output(bad_args(clue.args), reply)
+
+    wrong_tokens = []
+    if 'long' in clue.args:
+        for i in actual_tokens:
+            try:
+                int(i)
+            except ValueError:
+                wrong_tokens.append(i)
+        actual_tokens = list(filter(lambda a: isinstance(a, int), actual_tokens))
     reply = reply.strip()
     lines = reply.splitlines()
 
-    if 'long' in clue.args:
-        if len(lines) != 2:
-            if clue.reveal_test:
-                return CheckResult.wrong(
-                    f"Can't parse your output for sorting longs naturally: expected 2 lines.\n"
-                    + reveal_raw_test(clue, reply))
-            else:
-                return CheckResult.wrong("Can't parse your output for sorting longs naturally: expected 2 lines.")
-    elif 'line' in clue.args:
-        if len(lines) != 2 + len(actual_tokens):
-            if clue.reveal_test:
-                return CheckResult.wrong(
-                    f"Can't parse your output. Expected {2 + len(actual_tokens)} lines for sorting lines naturally.\n"
-                    + reveal_raw_test(clue, reply))
-            else:
-                return CheckResult.wrong(
-                    f"Can't parse your output. Expected (2+n) lines for sorting lines naturally.")
+    if len(wrong_tokens) > len(lines):
+        return CheckResult.wrong(
+            'If there are wrong tokens provided, your program should output ""input_value" is not'
+            ' a long. It will be skipped." string for each one')
+
+    amount_to_slice += len(wrong_tokens)
+    for i in range(0, len(wrong_tokens)):
+        if wrong_tokens[i] not in lines[i]:
+            return CheckResult.wrong(
+                'If there are wrong tokens provided, your program should output ""input_value" is not'
+                ' a long. It will be skipped." string for each one')
+
+    lines = lines[amount_to_slice:]
+
+    if len(lines) != 2:
+        if clue.reveal_test:
+            return CheckResult.wrong(
+                f"Can't parse your output for sorting naturally: expected 2 lines.\n"
+                + reveal_raw_test(clue, reply))
+        else:
+            return CheckResult.wrong("Can't parse your output for sorting naturally: expected 2 lines.")
 
     total_match = re.search(r'(?P<total>\d+)', lines[0])
     if total_match is None:
@@ -126,26 +214,16 @@ def check_natural(actual_tokens, clue, reply):
                 "Printed total amount of tokens after sorting naturally is incorrect for some testcases")
 
     actual_tokens.sort()
-
     if ':' not in lines[1]:
         return CheckResult.wrong("Second line of your output after sorting naturally does not contain ':' character")
-    sorted_tokens = []
-    if 'long' in clue.args:
-        sort_line = lines[1].split(':')[1].strip()
+    sort_line = lines[1].split(':')[1].strip()
 
-        def check_int(s):
-            if s and s[0] in ('-', '+'):
-                return s[1:].isdigit()
-            return s.isdigit()
-
-        for token in sort_line.split(' '):
-            if not check_int(token):
-                return CheckResult.wrong(
-                    "After ':' symbol there should be printed all the tokens, "
-                    "divided by space character for 'word' and 'long' data type.")
-        sorted_tokens = parse_long_tokens(sort_line)
-    elif 'line' in clue.args:
-        sorted_tokens = parse_line_tokens("\n".join(lines[2:]))
+    for token in sort_line.split(' '):
+        if not check_int(token):
+            return CheckResult.wrong(
+                "After ':' symbol there should be printed all the tokens, "
+                "divided by space character for 'word' and 'long' data type.")
+    sorted_tokens = parse_long_tokens(sort_line)
 
     if actual_total != len(sorted_tokens):
         if clue.reveal_test:
@@ -165,8 +243,34 @@ def check_natural(actual_tokens, clue, reply):
 
 
 def check_by_count(actual_tokens, clue, reply):
+    amount_to_slice = 0
+    if bad_args(clue.args) != '':
+        amount_to_slice = check_error_output(bad_args(clue.args), reply)
+
+    wrong_tokens = []
+    if 'long' in clue.args:
+        for i in actual_tokens:
+            try:
+                int(i)
+            except ValueError:
+                wrong_tokens.append(i)
+        actual_tokens = list(filter(lambda a: isinstance(a, int), actual_tokens))
     reply = reply.strip()
     lines = reply.splitlines()
+
+    if len(wrong_tokens) > len(lines):
+        return CheckResult.wrong(
+            'If there are wrong tokens provided, your program should output ""input_value" is not'
+            ' a long. It will be skipped." string for each one')
+
+    amount_to_slice += len(wrong_tokens)
+    for i in range(0, len(wrong_tokens)):
+        if wrong_tokens[i] not in lines[i]:
+            return CheckResult.wrong(
+                'If there are wrong tokens provided, your program should output ""input_value" is not'
+                ' a long. It will be skipped." string for each one')
+
+    lines = lines[amount_to_slice:]
 
     if len(lines) == 0:
         if clue.reveal_test:
@@ -221,7 +325,6 @@ def check_by_count(actual_tokens, clue, reply):
         info = lines_with_tokens[i].split(':')[1]
 
         info_match = re.search(r'(?P<count>\d+)\D+(?P<percentage>\d+)', info)
-
         count_actual_token = token_to_count[actual_sorted_by_count[i]]
         if info_match is None:
             if clue.reveal_test:
@@ -234,6 +337,8 @@ def check_by_count(actual_tokens, clue, reply):
                                          "not sorted correctly")
         token_count = info_match.group('count')
         token_percentage = info_match.group('percentage')
+
+        count_actual_token = token_to_count[actual_sorted_by_count[i]]
 
         if token != str(actual_sorted_by_count[i]) or token_count != str(count_actual_token) \
                 or token_percentage != str(int(count_actual_token / len(actual_tokens) * 100)):
@@ -250,4 +355,4 @@ def check_by_count(actual_tokens, clue, reply):
 
 
 if __name__ == '__main__':
-    SortingToolStage4Test().run_tests()
+    SortingToolStage5Test().run_tests()
