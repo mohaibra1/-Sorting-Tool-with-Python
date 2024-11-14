@@ -5,21 +5,33 @@ from hstest.testing.settings import Settings
 from hstest import *
 
 
-class SortingToolStage3Test(StageTest):
+class SortingToolStage4Test(StageTest):
 
     def generate(self) -> List[TestCase]:
         Settings.allow_out_of_input = True
-        return stage1_tests() + stage2_tests() + stage3_tests()
+        return stage4_tests()
 
     def check(self, reply: str, clue: Any) -> CheckResult:
-        if '-sortIntegers' in clue.args:
-            return check_natural(parse_long_tokens(clue.console_input), clue, reply)
-        elif 'long' in clue.args:
-            return check_for_long(clue, reply)
+        if 'byCount' in clue.args:
+            return self.by_count(reply, clue)
+        else:
+            return self.natural(reply, clue)
+
+    def by_count(self, reply: str, clue: Any):
+        if 'long' in clue.args:
+            return check_by_count(parse_long_tokens(clue.console_input), clue, reply)
         elif 'word' in clue.args:
-            return check_for_word(clue, reply)
+            return check_by_count(parse_word_tokens(clue.console_input), clue, reply)
         elif 'line' in clue.args:
-            return check_for_line(clue, reply)
+            return check_by_count(parse_line_tokens(clue.console_input), clue, reply)
+
+    def natural(self, reply: str, clue: Any):
+        if 'long' in clue.args:
+            return check_natural(parse_long_tokens(clue.console_input), clue, reply)
+        elif 'word' in clue.args:
+            return check_natural(parse_word_tokens(clue.console_input), clue, reply)
+        elif 'line' in clue.args:
+            return check_natural(parse_line_tokens(clue.console_input), clue, reply)
 
 
 class SortingToolClue:
@@ -39,220 +51,22 @@ def create_test(console_input, reveal_test, args=None):
     return TestCase(args=args, stdin=console_input, attach=SortingToolClue(console_input, reveal_test, args))
 
 
-def stage1_tests() -> List[TestCase]:
-    return [create_test('1 -2   33 4\n42\n1                 1'.strip(), True),
-            create_test("1 2 2 3 4 5 5", True),
-            create_test("1 1 2 2 3 4 4 4", False)]
-
-
-def stage2_tests() -> List[TestCase]:
-    return [create_test('1 -2   333 4\n42\n1                 1'.strip(), True, ['-dataType', 'word']),
-            create_test("abcc de a".strip(), False, ['-dataType', 'word']),
-            create_test("1 -2   333 4\n42\n1                 1".strip(), True, ['-dataType', 'line']),
-            create_test("1111\n22222\n3\n44".strip(), False, ['-dataType', 'line'])]
-
-
-def stage3_tests() -> List[TestCase]:
-    return [create_test('1 -2   333 4\n42\n1                 1'.strip(), True, ['-dataType', 'word', '-sortIntegers']),
-            create_test("1 -2   333 4\n42\n1                 1".strip(), True, ['-sortIntegers']),
-            create_test("1111\n22222\n3\n44".strip(), False, ['-sortIntegers', '-dataType', 'line'])]
-
-
-def check_for_long(clue, reply):
-    reply = reply.strip()
-    match = re.search(
-        r"(?P<total_numbers>\d+)\D+(?P<greatest_number>\d+)\D+(?P<greatest_number_count>\d+)\D+(?P<percentage>\d+)",
-        reply)
-    if match is None:
-        if clue.reveal_test:
-            return CheckResult.wrong("Can't parse your output for 'long' data type. Check the example.\n"
-                                     + reveal_raw_test(clue, reply))
-        else:
-            return CheckResult.wrong("Can't parse your output for some testcases. Check the example.")
-    total_numbers, greatest_number, greatest_number_count, percentage = \
-        int(match.group('total_numbers')), int(match.group('greatest_number')), int(
-            match.group('greatest_number_count')), int(match.group('percentage'))
-
-    nums = []
-    for actual_number in clue.console_input.split():
-        nums.append(int(actual_number))
-
-    actual_total_numbers = len(nums)
-
-    if actual_total_numbers != total_numbers:
-        if clue.reveal_test:
-            return CheckResult.wrong(
-                f"Total amount of numbers ({total_numbers}) is incorrect. Expected: {actual_total_numbers}.\n"
-                + reveal_raw_test(clue, reply))
-        else:
-            return CheckResult.wrong("Printed total amount of numbers is incorrect for some testcases.")
-
-    actual_greatest_number = max(nums)
-
-    if actual_greatest_number != greatest_number:
-        if clue.reveal_test:
-            return CheckResult.wrong(
-                f"Greatest number ({greatest_number}) is incorrect. Expected: {actual_greatest_number}.\n"
-                + reveal_raw_test(clue, reply))
-        else:
-            return CheckResult.wrong("Printed greatest number is incorrect for some testcases.")
-
-    actual_greatest_number_count = nums.count(actual_greatest_number)
-
-    if actual_greatest_number_count != greatest_number_count:
-        if clue.reveal_test:
-            return CheckResult.wrong(
-                f"Greatest number times ({greatest_number_count}) is incorrect. Expected: {actual_greatest_number_count}.\n"
-                + reveal_raw_test(clue, reply))
-        else:
-            return CheckResult.wrong("Printed greatest number times is incorrect for some testcases.")
-
-    actual_percentage = int(actual_greatest_number_count / actual_total_numbers * 100)
-
-    if actual_percentage != percentage:
-        if clue.reveal_test:
-            return CheckResult.wrong(
-                f"Percentage ({percentage}) is incorrect. Expected: {actual_percentage}.\n"
-                + reveal_raw_test(clue, reply))
-        else:
-            return CheckResult.wrong("Printed percentage is incorrect for some testcases with 'long' data type.")
-
-    return CheckResult.correct()
-
-
-def check_for_word(clue, reply):
-    reply = reply.strip()
-    match = re.search(r"(?P<total>\d+)\D+: (?P<word>.+) \(\D*(?P<count>\d+)\D+(?P<percentage>\d+)\D*\)", reply)
-    if match is None:
-        if clue.reveal_test:
-            return CheckResult.wrong("Can't parse your output for 'word' data type. Check the example.\n"
-                                     + reveal_raw_test(clue, reply))
-        else:
-            return CheckResult.wrong("Can't parse your output for some testcases. Check the example.")
-    total, word, count, percentage = \
-        int(match.group('total')), match.group('word'), int(match.group('count')), int(match.group('percentage'))
-
-    words = []
-    for actual_word in clue.console_input.split():
-        words.append(actual_word)
-
-    actual_total = len(words)
-
-    if actual_total != total:
-        if clue.reveal_test:
-            return CheckResult.wrong(f"Total amount of words ({total}) is incorrect. Expected: {actual_total}.\n"
-                                     + reveal_raw_test(clue, reply))
-        else:
-            return CheckResult.wrong("Printed total amount of words is incorrect for some testcases.")
-
-    actual_word = max(words, key=len)
-
-    if actual_word != word:
-        if clue.reveal_test:
-            return CheckResult.wrong(
-                f"Longest word ({word}) is incorrect. Expected: {actual_word}.\n"
-                + reveal_raw_test(clue, reply))
-        else:
-            return CheckResult.wrong("Printed longest word is incorrect for some testcases.")
-
-    actual_count = words.count(actual_word)
-
-    if actual_count != count:
-        if clue.reveal_test:
-            return CheckResult.wrong(
-                f"Longest word times ({count}) is incorrect. Expected: {actual_count}.\n"
-                + reveal_raw_test(clue, reply))
-        else:
-            return CheckResult.wrong("Printed longest word times is incorrect for some testcases.")
-
-    actual_percentage = int(actual_count / actual_total * 100)
-
-    if actual_percentage != percentage:
-        if clue.reveal_test:
-            return CheckResult.wrong(
-                f"Percentage {percentage} is incorrect. Expected: {actual_percentage}.\n"
-                + reveal_raw_test(clue, reply))
-        else:
-            return CheckResult.wrong("Printed percentage is incorrect for some testcases with 'word' data type.")
-
-    return CheckResult.correct()
-
-
-def check_for_line(clue, reply):
-    reply = reply.strip()
-    lines = reply.splitlines()
-
-    if len(lines) != 4:
-        if clue.reveal_test:
-            return CheckResult.wrong(
-                f"Can't parse your output for 'line' data type: expected 4 lines. Check the example\n"
-                + reveal_raw_test(clue, reply))
-        else:
-            return CheckResult.wrong(
-                "Can't parse your output for 'line' data type: expected 4 lines. Check the example")
-
-    total_match = re.search(r'(?P<total>\d+)', lines[0])
-    if total_match is None:
-        if clue.reveal_test:
-            return CheckResult.wrong("First line of an output for 'line' data type should contain a number\n"
-                                     + reveal_raw_test(clue, reply))
-        else:
-            return CheckResult.wrong("First line of an output for 'line' data type should contain a number")
-
-    total = int(total_match.group('total'))
-    line = lines[2]
-
-    count_match = re.search(r'(?P<count>\d+)\D+(?P<percentage>\d+)', lines[3])
-    if count_match is None:
-        if clue.reveal_test:
-            return CheckResult.wrong("Last line of an output for 'line' data type should contain two numbers\n"
-                                     + reveal_raw_test(clue, reply))
-        else:
-            return CheckResult.wrong("Last line of an output for 'line' data type should contain two numbers")
-
-    count = int(count_match.group('count'))
-    percentage = int(count_match.group('percentage'))
-
-    actual_total = len(clue.console_input.splitlines())
-
-    if actual_total != total:
-        if clue.reveal_test:
-            return CheckResult.wrong(f"Total amount of lines ({total}) is incorrect. Expected: {actual_total}.\n"
-                                     + reveal_raw_test(clue, reply))
-        else:
-            return CheckResult.wrong("Printed total amount of lines is incorrect for some testcases.")
-
-    actual_line = max(clue.console_input.splitlines(), key=len)
-
-    if actual_line != line:
-        if clue.reveal_test:
-            return CheckResult.wrong(
-                f"Longest line ({line}) is incorrect. Expected: {actual_line}.\n"
-                + reveal_raw_test(clue, reply))
-        else:
-            return CheckResult.wrong("Printed longest line is incorrect for some testcases.")
-
-    actual_count = clue.console_input.splitlines().count(actual_line)
-
-    if actual_count != count:
-        if clue.reveal_test:
-            return CheckResult.wrong(
-                f"Longest line times ({count}) is incorrect. Expected: {actual_count}.\n"
-                + reveal_raw_test(clue, reply))
-        else:
-            return CheckResult.wrong("Printed longest line times is incorrect for some testcases.")
-
-    actual_percentage = int(actual_count / actual_total * 100)
-
-    if actual_percentage != percentage:
-        if clue.reveal_test:
-            return CheckResult.wrong(
-                f"Percentage {percentage} is incorrect. Expected: {actual_percentage}.\n"
-                + reveal_raw_test(clue, reply))
-        else:
-            return CheckResult.wrong("Printed percentage is incorrect for some testcases with 'line' data type.")
-
-    return CheckResult.correct()
+def stage4_tests() -> List[TestCase]:
+    return [create_test('1 -2   333 4\n42\n1                 1'.strip(), True,
+                        ['-dataType', 'long', '-sortingType', 'natural']),
+            create_test('1 -2   333 4\n42\n1                 1'.strip(), True, ['-dataType', 'long']),
+            create_test('1 -2   333 4\n42\n1                 1'.strip(), True,
+                        ['-sortingType', 'byCount', '-dataType', 'long']),
+            create_test('1 -2   333 4\n42\n1                 1'.strip(), True,
+                        ['-sortingType', 'byCount', '-dataType', 'word']),
+            create_test('1 -2   333 4\n42\n42\n1                 1'.strip(), True,
+                        ['-sortingType', 'byCount', '-dataType', 'line']),
+            create_test('1 -2   333 4\n42\n42\n1                 1'.strip(), True,
+                        ['-sortingType', 'natural', '-dataType', 'line']),
+            create_test('22222\n1111 1111\n3\n44'.strip(), False, ['-sortingType', 'byCount', '-dataType', 'line']),
+            create_test('22222\n1111 1111\n3\n44'.strip(), False, ['-sortingType', 'natural', '-dataType', 'line']),
+            create_test('22222\n1111 1111\n3\n44'.strip(), False, ['-sortingType', 'byCount', '-dataType', 'word']),
+            create_test('22222\n1111 1111\n3\n44'.strip(), False, ['-sortingType', 'byCount', '-dataType', 'long'])]
 
 
 def parse_long_tokens(inp):
@@ -262,25 +76,43 @@ def parse_long_tokens(inp):
     return array
 
 
+def parse_word_tokens(inp):
+    return inp.split()
+
+
+def parse_line_tokens(inp):
+    return inp.splitlines()
+
+
 def check_natural(actual_tokens, clue, reply):
     reply = reply.strip()
     lines = reply.splitlines()
 
-    if len(lines) != 2:
-        if clue.reveal_test:
-            return CheckResult.wrong(
-                f"Can't parse your output after sorting: expected 2 lines.\n"
-                + reveal_raw_test(clue, reply))
-        else:
-            return CheckResult.wrong("Can't parse your output after sorting: expected 2 lines.")
+    if 'long' in clue.args:
+        if len(lines) != 2:
+            if clue.reveal_test:
+                return CheckResult.wrong(
+                    f"Can't parse your output for sorting longs naturally: expected 2 lines.\n"
+                    + reveal_raw_test(clue, reply))
+            else:
+                return CheckResult.wrong("Can't parse your output for sorting longs naturally: expected 2 lines.")
+    elif 'line' in clue.args:
+        if len(lines) != 2 + len(actual_tokens):
+            if clue.reveal_test:
+                return CheckResult.wrong(
+                    f"Can't parse your output. Expected {2 + len(actual_tokens)} lines for sorting lines naturally.\n"
+                    + reveal_raw_test(clue, reply))
+            else:
+                return CheckResult.wrong(
+                    f"Can't parse your output. Expected (2+n) lines for sorting lines naturally.")
 
     total_match = re.search(r'(?P<total>\d+)', lines[0])
     if total_match is None:
         if clue.reveal_test:
-            return CheckResult.wrong("The first line of your output after sorting should contain a number.\n"
+            return CheckResult.wrong("The first line of your output after sorting naturally should contain a number\n"
                                      + reveal_raw_test(clue, reply))
         else:
-            return CheckResult.wrong("The first line of your output after sorting should contain a number")
+            return CheckResult.wrong("The first line of your output after sorting naturally should contain a number")
 
     total = int(total_match.group('total'))
     actual_total = len(actual_tokens)
@@ -290,26 +122,30 @@ def check_natural(actual_tokens, clue, reply):
             return CheckResult.wrong(f"Total amount of tokens ({total}) is incorrect. Expected: {actual_total}.\n"
                                      + reveal_raw_test(clue, reply))
         else:
-            return CheckResult.wrong("Printed total amount of tokens after sorting is incorrect")
+            return CheckResult.wrong(
+                "Printed total amount of tokens after sorting naturally is incorrect for some testcases")
 
     actual_tokens.sort()
+
     if ':' not in lines[1]:
-        return CheckResult.wrong(
-            "There should be one ':' symbol in last line of a sorting output, "
-            "that separates \'Sorted data:\' string from actual tokens")
-    sort_line = lines[1].split(':')[1].strip()
+        return CheckResult.wrong("Second line of your output after sorting naturally does not contain ':' character")
+    sorted_tokens = []
+    if 'long' in clue.args:
+        sort_line = lines[1].split(':')[1].strip()
 
-    def check_int(s):
-        if s and s[0] in ('-', '+'):
-            return s[1:].isdigit()
-        return s.isdigit()
+        def check_int(s):
+            if s and s[0] in ('-', '+'):
+                return s[1:].isdigit()
+            return s.isdigit()
 
-    for token in sort_line.split(' '):
-        if not check_int(token):
-            return CheckResult.wrong(
-                "After ':' symbol in last line of a sorting output there should be printed all the tokens,"
-                " divided by space character")
-    sorted_tokens = parse_long_tokens(sort_line)
+        for token in sort_line.split(' '):
+            if not check_int(token):
+                return CheckResult.wrong(
+                    "After ':' symbol there should be printed all the tokens, "
+                    "divided by space character for 'word' and 'long' data type.")
+        sorted_tokens = parse_long_tokens(sort_line)
+    elif 'line' in clue.args:
+        sorted_tokens = parse_line_tokens("\n".join(lines[2:]))
 
     if actual_total != len(sorted_tokens):
         if clue.reveal_test:
@@ -317,7 +153,7 @@ def check_natural(actual_tokens, clue, reply):
                 f"Total amount of sorted tokens ({len(sorted_tokens)}) is incorrect. Expected: {actual_total}.\n"
                 + reveal_raw_test(clue, reply))
         else:
-            return CheckResult.wrong("Total amount of sorted tokens is incorrect.")
+            return CheckResult.wrong("Total amount of sorted tokens is incorrect for some testcases.")
     if sorted_tokens != actual_tokens:
         if clue.reveal_test:
             return CheckResult.wrong(f"Some tokens were sorted incorrectly.\n"
@@ -328,5 +164,90 @@ def check_natural(actual_tokens, clue, reply):
     return CheckResult.correct()
 
 
+def check_by_count(actual_tokens, clue, reply):
+    reply = reply.strip()
+    lines = reply.splitlines()
+
+    if len(lines) == 0:
+        if clue.reveal_test:
+            return CheckResult.wrong("The first line of your output after sorting by count should contain a number\n"
+                                     + reveal_raw_test(clue, reply))
+        else:
+            return CheckResult.wrong("The first line of your output after sorting by count should contain a number")
+
+    total_match = re.search(r'(?P<total>\d+)', lines[0])
+    if total_match is None:
+        if clue.reveal_test:
+            return CheckResult.wrong("The first line of your output after sorting by count should contain a number\n"
+                                     + reveal_raw_test(clue, reply))
+        else:
+            return CheckResult.wrong("The first line of your output after sorting by count should contain a number")
+
+    total = int(total_match.group('total'))
+    actual_total = len(actual_tokens)
+
+    if actual_total != total:
+        if clue.reveal_test:
+            return CheckResult.wrong(f"Total amount of tokens ({total}) is incorrect. Expected: {actual_total}.\n"
+                                     + reveal_raw_test(clue, reply))
+        else:
+            return CheckResult.wrong(
+                "Printed total amount of tokens after sorting by count is incorrect for some testcases")
+
+    sort = sorted(actual_tokens)
+    sort = sorted(sort, key=lambda x: actual_tokens.count(x), reverse=False)
+    token_to_count = dict.fromkeys(sort)
+    for i in token_to_count.keys():
+        token_to_count[i] = actual_tokens.count(i)
+
+    actual_sorted_by_count = list(token_to_count)
+
+    lines_with_tokens = lines[1:]
+
+    if len(actual_sorted_by_count) != len(lines_with_tokens):
+        if clue.reveal_test:
+            return CheckResult.wrong(
+                f"Amount of lines with tokens (after 'Total numbers:' line in byCount sort) ({len(lines_with_tokens)}) "
+                f"is incorrect. Expected: {len(actual_sorted_by_count)}.\n"
+                + reveal_raw_test(clue, reply))
+        else:
+            return CheckResult.wrong(
+                "Amount of lines with tokens (after 'Total numbers:' line in byCount sort) is incorrect")
+
+    for i in range(0, len(lines_with_tokens)):
+        if ':' not in lines_with_tokens[i]:
+            return CheckResult.wrong("Each line with token in byCount sort should contain ':' character")
+        token = lines_with_tokens[i].split(':')[0]
+        info = lines_with_tokens[i].split(':')[1]
+
+        info_match = re.search(r'(?P<count>\d+)\D+(?P<percentage>\d+)', info)
+
+        count_actual_token = token_to_count[actual_sorted_by_count[i]]
+        if info_match is None:
+            if clue.reveal_test:
+                return CheckResult.wrong(
+                    f"Token ({lines_with_tokens[i]}) contains incorrect info. Expected: {actual_sorted_by_count[i]}: "
+                    f"{count_actual_token} time(s), {int(count_actual_token / len(actual_tokens) * 100)}%.\n "
+                    + reveal_raw_test(clue, reply))
+            else:
+                return CheckResult.wrong("Some of printed token lines in byCount sort contain incorrect info, or were "
+                                         "not sorted correctly")
+        token_count = info_match.group('count')
+        token_percentage = info_match.group('percentage')
+
+        if token != str(actual_sorted_by_count[i]) or token_count != str(count_actual_token) \
+                or token_percentage != str(int(count_actual_token / len(actual_tokens) * 100)):
+            if clue.reveal_test:
+                return CheckResult.wrong(
+                    f"Token ({lines_with_tokens[i]}) contains incorrect info. Expected: {actual_sorted_by_count[i]}: "
+                    f"{count_actual_token} time(s), {int(count_actual_token / len(actual_tokens) * 100)}%.\n "
+                    + reveal_raw_test(clue, reply))
+            else:
+                return CheckResult.wrong("Some of printed token lines in byCount sort contain incorrect info, or were "
+                                         "not sorted correctly")
+
+    return CheckResult.correct()
+
+
 if __name__ == '__main__':
-    SortingToolStage3Test().run_tests()
+    SortingToolStage4Test().run_tests()
