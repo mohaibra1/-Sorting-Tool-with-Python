@@ -12,6 +12,25 @@ files:
   - name: tests.py
     visible: false
     learner_created: false
+  - name: dat.txt
+    visible: true
+    learner_created: true
+  - name: out.txt
+    visible: true
+    learner_created: true
+  - name: temp.txt
+    visible: true
+    learner_created: true
+  - name: lose.txt
+    visible: true
+    learner_created: true
+  - name: outdata.txt
+    visible: true
+    learner_created: true
 feedback_link: https://hyperskill.org/learn/step/24276#comment
-status: Unchecked
+status: Solved
+feedback:
+  message: Well done! You've finished the project. Select a new project on <a href="https://hyperskill.org/projects">Hyperskill</a>
+    to continue learning.
+  time: "Fri, 15 Nov 2024 12:47:26 UTC"
 record: -1
